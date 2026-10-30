@@ -85,6 +85,8 @@ html:not(.fs) .qzone{padding-bottom:21px}
 .qtext .eq{margin:0 .27em 0 .3em;font-weight:400}
 .qtext .ans{color:var(--qm);font-weight:400;margin-left:-.06em}
 .qtext .ans.typed{font-weight:700;margin-left:0}
+.qtext .ans.res-ok{color:#4aa386}
+.qtext .ans.res-bad{color:#fb5c51}
 .ctrl{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;height:46.6px;margin-bottom:14.9px;padding-left:max(24.2px,env(safe-area-inset-left,0px));padding-right:max(24.6px,env(safe-area-inset-right,0px))}
 .skip{justify-self:start;width:70px;height:39.5px;padding:0;border:1.4px solid var(--skipbd);background:var(--skipbg);color:var(--skipink);border-radius:8px;font-weight:700;font-size:11px;letter-spacing:1.3px;text-indent:1.3px}
 .auto{display:flex;align-items:center;justify-content:space-between;width:137px;height:46.6px;padding:0 13.1px 0 10.7px;background:var(--autobg);border:1.4px solid var(--autobd);border-radius:9px;color:var(--acc);font-weight:500;font-size:12px;line-height:1.16;text-align:left}
@@ -438,7 +440,7 @@ const unitCatch=q=>!q.ok&&!q.skip&&q.t!=null&&((q.t%10)+10)%10!==q.c%10;
 function isBench(cfg){return cfg.module==='add'&&cfg.mode==='range'&&+cfg.from===10&&+cfg.to===99&&cfg.diff==='medium'&&cfg.tgt==='q'&&+cfg.n===30}
 
 /* ================= persistence (PHONE APP: sab phone me + Google Form -> teri Google Sheet) ================= */
-const APP_VER='p1';
+const APP_VER='p2';
 const FORM_DEFAULT={id:'1FAIpQLSfakfFzr-bEa3RVfxoD4Pn9rARQHwa_EebivfCw3n7B3QjYaA',entry:'348005431'};
 function formCfg(){const o=LS.get('jod-form',null);if(o&&o.id&&o.entry)return o;return FORM_DEFAULT.id&&FORM_DEFAULT.entry?FORM_DEFAULT:null}
 function parseFormLink(s){s=String(s||'').trim();const m=s.match(/forms\/d\/e\/([A-Za-z0-9_-]{20,})\//);const e=s.match(/entry\.(\d{4,})/);return m&&e?{id:m[1],entry:e[1]}:null}
@@ -527,8 +529,9 @@ function openPractice(){
   const r=S.run;show('practice');
   $('#p-title').textContent=r.module==='neev'?'Neev':r.cfg.mode==='revision'?'Revision':'Addition';
   setInput(r.input||'keypad',true);$('#p-auto').setAttribute('aria-pressed',String(!!S.settings.auto));
-  r.seg=now();renderQ();updCounts();tick();
+  r.seg=now();if(curQ()&&curQ().done){next();if(!S.run)return}renderQ();updCounts();tick();
 }
+const HOLD_MS=300;
 function curQ(){const r=S.run;return r&&r.qs[r.i]}
 function renderQ(){
   const r=S.run,q=curQ();if(!q)return;
@@ -558,7 +561,12 @@ function submit(val,viaOpt){
   const r=S.run,q=curQ();if(!r||!q||q.done||isNaN(val))return;
   const e=elapsed();q.ms=Math.max(0,Math.round(e-r.qStart));q.t=val;q.ok=val===q.c;q.done=1;q.in=viaOpt?'o':'k';q.tag=tagOf(r.module,q);
   if(!q.ok&&S.settings.vib){try{navigator.vibrate&&navigator.vibrate(70)}catch(err){}}
-  updCounts(q.ok?'flash-ok':'flash-bad');next();
+  updCounts(q.ok?'flash-ok':'flash-bad');
+  const shown=(r.typed&&!viaOpt)?r.typed:String(val);
+  $('#p-q').innerHTML='<b>'+q.a+'</b><span class="op">+</span><b>'+q.b+'</b><span class="eq">=</span><span class="ans typed '+(q.ok?'res-ok':'res-bad')+'">'+esc(shown)+'</span>';
+  if(!r.limit)$('#p-prog').style.width=((r.i+1)/r.qs.length*100)+'%';
+  const id=r.id,idx=r.i;
+  setTimeout(()=>{const R=S.run;if(R&&R.id===id&&R.i===idx&&R.qs[idx]&&R.qs[idx].done)next()},HOLD_MS);
 }
 function skipQ(){const r=S.run,q=curQ();if(!r||!q||q.done)return;const e=elapsed();q.ms=Math.round(e-r.qStart);q.t=null;q.ok=false;q.skip=1;q.done=1;q.tag='SKIP';next()}
 function next(){
